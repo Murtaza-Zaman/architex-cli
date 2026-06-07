@@ -1,0 +1,13 @@
+  {
+    "name": "create-architex-app",
+    "version": "1.0.0",
+    "description": "Architex Scaffolding CLI - Enterprise level React Feature Base Folder Architecture Generator",
+    "bin": {
+      "create-architex-app": "./bin/cli.js"
+    },
+    "dependencies": {
+      "commander": "^12.0.0"
+    },
+    "keywords": ["cli", "react", "vite", "architex", "generator"],
+    "license": "MIT"
+  }
