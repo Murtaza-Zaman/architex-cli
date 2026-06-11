@@ -1,317 +1,615 @@
-const fs = require("fs"); // for working with file system (like creating files and folders)
-const path = require("path"); // for working with file paths (like joining paths)
+const fs = require("fs");
+const path = require("path");
 
 function setupStructure(projectPath) {
   console.log("📁 Creating architecture with files...");
 
-  // Helper function
+  // ── Helpers ──────────────────────────────────────────────────
   const createFile = (filePath, content) => {
-    // create the full path to the file
     const fullPath = path.join(projectPath, filePath);
-    // get the directory path of the file
     const dirPath = path.dirname(fullPath);
-    // if the directory path doesn't exist, create it
     if (!fs.existsSync(dirPath)) {
-      // recursive: true creates parent directories as needed
       fs.mkdirSync(dirPath, { recursive: true });
     }
-    // write the content to the file
     fs.writeFileSync(fullPath, content);
   };
 
-  // Helper function to delete file
   const deleteFile = (filePath) => {
     const fullPath = path.join(projectPath, filePath);
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-    }
+    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
   };
 
   // Delete default Vite App.css
   deleteFile("src/App.css");
 
-  // 📁 MAIN ROUTER & ENTRY POINTS
+  // ─────────────────────────────────────────────────────────────
+  // 📁 ENTRY POINT
+  // Chain: src/pages/index.js → AppRoutes → main.jsx
+  // ─────────────────────────────────────────────────────────────
   createFile(
     "src/main.jsx",
-    `import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App.jsx";
+    `import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import "./index.css";
-import "./i18n";
-
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);`
-  );
-
-  createFile(
-    "src/App.jsx",
-    `import { BrowserRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "./services/interceptors";
+import { AuthProvider } from "./features/auth/context/AuthContext.jsx";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AppRoutes from "./routes/AppRoutes";
-import MainLayout from "./layouts/MainLayout";
 
 const queryClient = new QueryClient();
 
-export default function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <MainLayout>
-          <AppRoutes />
-        </MainLayout>
-      </BrowserRouter>
-      <ToastContainer position="top-right" autoClose={3000} theme="dark" />
-    </QueryClientProvider>
+createRoot(document.getElementById("root")).render(
+  <QueryClientProvider client={queryClient}>
+    <StrictMode>
+      <AuthProvider>
+        <AppRoutes />
+        <ToastContainer position="top-right" autoClose={3000} theme="dark" />
+      </AuthProvider>
+    </StrictMode>
+  </QueryClientProvider>
+);`
   );
+
+  // ─────────────────────────────────────────────────────────────
+  // 📁 ROUTE CONSTANTS
+  // ─────────────────────────────────────────────────────────────
+  createFile(
+    "src/constraints/routes.js",
+    `// Central route path constants — import this everywhere, never use raw strings.
+export const routes = {
+  // ── Public Pages ────────────────────────────────────────────
+  HOME: "/",
+  PRODUCTS: "/products",
+  PRODUCT_DETAILS: "/product/:id",
+  ABOUT_US: "/about-us",
+  CONTACT_US: "/contact-us",
+  FAQ: "/faq",
+  BLOG: "/blog",
+  BLOG_DETAILS: "/blog/:id",
+  TERMS: "/terms-and-conditions",
+  PRIVACY: "/privacy-policy",
+
+  // ── Authentication ───────────────────────────────────────────
+  LOGIN: "/login",
+  REGISTER: "/register",
+  FORGOT_PASSWORD: "/sent-otp",
+  RESET_PASSWORD: "/reset-password",
+  VERIFY_OTP: "/verify-otp",
+  SET_NEW_PASSWORD: "/set-new-password",
+
+  // ── User Account / Profile ───────────────────────────────────
+  PROFILE: "/profile",
+  EDIT_PROFILE: "/profile/edit",
+  CHANGE_PASSWORD: "/profile/change-password",
+  ORDER_HISTORY: "/orders",
+  ORDER_DETAILS: "/orders/:id",
+  WISHLIST: "/wishlist",
+  CART: "/cart",
+  CHECKOUT: "/checkout",
+  PAYMENT_SUCCESS: "/payment-success",
+  PAYMENT_FAILED: "/payment-failed",
+
+  // ── Admin Panel ──────────────────────────────────────────────
+  ADMIN_DASHBOARD: "/admin-dashboard",
+  ADMIN_PRODUCTS: "/admin-products",
+  ADMIN_ADD_PRODUCT: "/admin-products/add",
+  ADMIN_EDIT_PRODUCT: "/admin-products/edit/:id",
+  ADMIN_ORDERS: "/admin-orders",
+  ADMIN_USERS: "/admin-users",
+  ADMIN_CATEGORIES: "/admin-categories",
+  ADMIN_ADD_CATEGORY: "/admin-categories/add",
+  ADMIN_EDIT_CATEGORY: "/admin-categories/edit/:id",
+  ADMIN_REVIEWS: "/admin-reviews",
+  ADMIN_SETTINGS: "/admin-settings",
+
+  // ── Category & Search ────────────────────────────────────────
+  CATEGORY: "/category/:slug",
+  SEARCH: "/search",
+
+  // ── Error / Not Found ────────────────────────────────────────
+  NOT_FOUND: "/404",
+};`
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  // 📁 FEATURES / AUTH
+  //
+  // Structure:
+  //   src/features/auth/
+  //     ├── components/   ← reusable UI pieces (forms, inputs…)
+  //     │     └── index.js
+  //     ├── context/      ← AuthContext + AuthProvider
+  //     │     └── index.js
+  //     ├── hooks/        ← useAuth
+  //     │     └── index.js
+  //     ├── schema/       ← Zod validation schemas
+  //     │     └── index.js
+  //     ├── pages/        ← full page components (LoginPage, etc.)
+  //     │     └── index.js
+  //     └── index.js      ← re-exports from ALL sub-folder barrels
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── auth / context ───────────────────────────────────────────
+  createFile(
+    "src/features/auth/context/AuthContext.jsx",
+    `import { createContext, useContext, useState } from "react";
+
+// TODO: Replace this stub with your real auth context implementation.
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
+  const [isAdmin, setIsAdmin] = useState(localStorage.getItem("role") === "admin");
+
+  return (
+    <AuthContext.Provider value={{ token, setToken, isAdmin, setIsAdmin }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuthContext() {
+  return useContext(AuthContext);
 }`
   );
 
-  // 📁 LOCALIZATION (react-i18next)
   createFile(
-    "src/i18n.js",
-    `import i18n from "i18next";
-import { initReactI18next } from "react-i18next";
-
-const resources = {
-  en: {
-    translation: {
-      welcome: "Welcome to Architex",
-      login: "Login",
-      email: "Email",
-      password: "Password",
-      signingIn: "Signing in...",
-      loginSuccess: "Successfully logged in!",
-      loginError: "Invalid credentials",
-      dashboard: "Dashboard",
-      logout: "Logout",
-    },
-  },
-  es: {
-    translation: {
-      welcome: "Bienvenido a Architex",
-      login: "Iniciar Sesión",
-      email: "Correo Electrónico",
-      password: "Contraseña",
-      signingIn: "Iniciando sesión...",
-      loginSuccess: "¡Inicio de sesión exitoso!",
-      loginError: "Credenciales inválidas",
-      dashboard: "Tablero",
-      logout: "Cerrar Sesión",
-    },
-  },
-};
-
-i18n.use(initReactI18next).init({
-  resources,
-  lng: "en",
-  fallbackLng: "en",
-  interpolation: {
-    escapeValue: false,
-  },
-});
-
-export default i18n;`
+    "src/features/auth/context/index.js",
+    `export { AuthProvider, useAuthContext } from "./AuthContext";`
   );
 
-  // 📁 FEATURES
+  // ── auth / hooks ─────────────────────────────────────────────
   createFile(
-    "src/features/auth/Login.jsx",
-    `import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useTranslation } from "react-i18next";
-import { toast } from "react-toastify";
-import { Mail, Lock, LogIn, Globe } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+    "src/features/auth/hooks/useAuth.jsx",
+    `// TODO: Replace with your real auth implementation.
+// AdminProtectedRoute expects { token, isAdmin, loading }.
+import { useState, useEffect } from "react";
 
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+export default function useAuth() {
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-export default function Login() {
-  const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
+  useEffect(() => {
+    const storedToken = localStorage.getItem("token");
+    const storedRole  = localStorage.getItem("role");
+    setToken(storedToken || null);
+    setIsAdmin(storedRole === "admin");
+    setLoading(false);
+  }, []);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm({
-    resolver: zodResolver(loginSchema),
+  return { token, isAdmin, loading };
+}`
+  );
+
+  createFile(
+    "src/features/auth/hooks/index.js",
+    `export { default as useAuth } from "./useAuth";`
+  );
+
+  // ── auth / schema ────────────────────────────────────────────
+  createFile(
+    "src/features/auth/schema/authSchema.js",
+    `// TODO: Add your Zod validation schemas here.
+// import { z } from "zod";
+
+// export const loginSchema = z.object({
+//   email: z.string().email("Invalid email address"),
+//   password: z.string().min(6, "Password must be at least 6 characters"),
+// });
+
+// export const registerSchema = z.object({
+//   name: z.string().min(2, "Name must be at least 2 characters"),
+//   email: z.string().email("Invalid email address"),
+//   password: z.string().min(6, "Password must be at least 6 characters"),
+// });`
+  );
+
+  createFile(
+    "src/features/auth/schema/index.js",
+    `export * from "./authSchema";`
+  );
+
+  // ── auth / components ────────────────────────────────────────
+  // (reusable UI pieces — forms, inputs, etc.)
+  createFile(
+    "src/features/auth/components/index.js",
+    `// Export reusable auth UI components here.
+// Example:
+// export { default as AuthInput } from "./AuthInput";`
+  );
+
+  // ── auth / pages ─────────────────────────────────────────────
+  const authPageFiles = [
+    ["LoginPage",         "Login Page"],
+    ["RegisterPage",      "Register Page"],
+    ["ForgotPasswordPage","Forgot Password Page"],
+    ["VerifyOTPPage",     "Verify OTP Page"],
+    ["SetNewPasswordPage","Set New Password Page"],
+  ];
+
+  authPageFiles.forEach(([name, title]) => {
+    createFile(
+      `src/features/auth/pages/${name}.jsx`,
+      `export default function ${name}() {
+  return <div><h1>${title}</h1></div>;
+}`
+    );
   });
 
-  const onSubmit = async (data) => {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      if (data.email === "admin@example.com" && data.password === "password123") {
-        toast.success(t("loginSuccess"));
-        navigate("/dashboard");
-      } else {
-        toast.error(t("loginError"));
-      }
-    } catch (error) {
-      toast.error("An error occurred");
-    }
-  };
+  createFile(
+    "src/features/auth/pages/index.js",
+    `export { default as LoginPage }          from "./LoginPage";
+export { default as RegisterPage }       from "./RegisterPage";
+export { default as ForgotPasswordPage } from "./ForgotPasswordPage";
+export { default as VerifyOTPPage }      from "./VerifyOTPPage";
+export { default as SetNewPasswordPage } from "./SetNewPasswordPage";`
+  );
 
-  const toggleLanguage = () => {
-    const nextLang = i18n.language === "en" ? "es" : "en";
-    i18n.changeLanguage(nextLang);
-  };
+  // ── auth / index.js  (main auth barrel) ──────────────────────
+  createFile(
+    "src/features/auth/index.js",
+    `// ── Auth feature barrel ────────────────────────────────────────
+// Everything from auth is re-exported here so the rest of the app
+// only needs to import from "features/auth", never from deep paths.
 
+export * from "./context/index";
+export * from "./hooks/index";
+export * from "./schema/index";
+export * from "./components/index";
+export * from "./pages/index";`
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  // 📁 SRC / PAGES
+  //
+  // Public & admin page stubs live in their own sub-folders.
+  // src/pages/index.js is the central barrel that re-exports
+  // pages from every feature barrel + the local public/admin pages.
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── Public pages ─────────────────────────────────────────────
+  createFile(
+    "src/pages/PublicPages/HomePage.jsx",
+    `export default function HomePage() {
+  return <div><h1>Home Page</h1></div>;
+}`
+  );
+
+  createFile(
+    "src/pages/PublicPages/ProductsPage.jsx",
+    `export default function ProductsPage() {
+  return <div><h1>Products Page</h1></div>;
+}`
+  );
+
+  createFile(
+    "src/pages/PublicPages/ProductDetailsPage.jsx",
+    `export default function ProductDetailsPage() {
+  return <div><h1>Product Details Page</h1></div>;
+}`
+  );
+
+  createFile(
+    "src/pages/PublicPages/NotFoundPage.jsx",
+    `export default function NotFoundPage() {
   return (
-    <div className="auth-container">
-      <div className="language-selector">
-        <button onClick={toggleLanguage} className="lang-btn">
-          <Globe size={16} />
-          <span>{i18n.language.toUpperCase()}</span>
-        </button>
-      </div>
-
-      <div className="auth-card">
-        <div className="auth-header">
-          <div className="auth-icon-wrapper">
-            <LogIn className="auth-icon" size={32} />
-          </div>
-          <h2>{t("welcome")}</h2>
-          <p>Sign in to your account</p>
-          <div className="credentials-hint">
-            Hint: admin@example.com / password123
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
-          <div className="form-group">
-            <label>{t("email")}</label>
-            <div className="input-wrapper">
-              <Mail className="input-icon" size={18} />
-              <input
-                type="email"
-                placeholder="admin@example.com"
-                {...register("email")}
-                className={errors.email ? "input-error" : ""}
-              />
-            </div>
-            {errors.email && <span className="error-text">{errors.email.message}</span>}
-          </div>
-
-          <div className="form-group">
-            <label>{t("password")}</label>
-            <div className="input-wrapper">
-              <Lock className="input-icon" size={18} />
-              <input
-                type="password"
-                placeholder="••••••••"
-                {...register("password")}
-                className={errors.password ? "input-error" : ""}
-              />
-            </div>
-            {errors.password && <span className="error-text">{errors.password.message}</span>}
-          </div>
-
-          <button type="submit" disabled={isSubmitting} className="submit-btn">
-            {isSubmitting ? t("signingIn") : t("login")}
-          </button>
-        </form>
-      </div>
+    <div style={{ textAlign: "center", marginTop: "4rem" }}>
+      <h1>404 — Page Not Found</h1>
+      <p>The page you are looking for does not exist.</p>
     </div>
   );
 }`
   );
 
+  // ── Admin pages ──────────────────────────────────────────────
+  const adminPageFiles = [
+    ["dashboardPages/AdminDashboardPage",     "AdminDashboardPage",    "Dashboard"],
+    ["productsPages/AdminProductsPage",       "AdminProductsPage",     "Products"],
+    ["productsPages/AdminAddProductPage",     "AdminAddProductPage",   "Add Product"],
+    ["productsPages/AdminEditProductPage",    "AdminEditProductPage",  "Edit Product"],
+    ["ordersPage/AdminOrdersPage",            "AdminOrdersPage",       "Orders"],
+    ["usersPage/AdminUsersPage",              "AdminUsersPage",        "Users"],
+    ["categoriesPages/AdminCategoryPage",     "AdminCategoryPage",     "Categories"],
+    ["categoriesPages/AdminAddCategoryPage",  "AdminAddCategoryPage",  "Add Category"],
+    ["categoriesPages/AdminEditCategoryPage", "AdminEditCategoryPage", "Edit Category"],
+    ["reviewsPage/AdminReviewsPage",          "AdminReviewsPage",      "Reviews"],
+    ["settingsPage/AdminSettingsPage",        "AdminSettingsPage",     "Settings"],
+  ];
+
+  adminPageFiles.forEach(([filePath, componentName, title]) => {
+    createFile(
+      `src/pages/AdminPages/${filePath}.jsx`,
+      `export default function ${componentName}() {
+  return <div><h1>Admin — ${title}</h1></div>;
+}`
+    );
+  });
+
+  // ── src/pages/index.js  (central pages barrel) ───────────────
   createFile(
-    "src/features/dashboard/Dashboard.jsx",
-    `import { useTranslation } from "react-i18next";
-import { LogOut, LayoutDashboard, Globe } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+    "src/pages/index.js",
+    `// ── Central pages barrel ────────────────────────────────────────
+// Import all pages from feature barrels and local page folders.
+// AppRoutes (and anywhere else) should import pages from here.
 
-export default function Dashboard() {
-  const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
+// ── From features ───────────────────────────────────────────────
+export {
+  LoginPage,
+  RegisterPage,
+  ForgotPasswordPage,
+  VerifyOTPPage,
+  SetNewPasswordPage,
+} from "../features/auth";
 
-  const handleLogout = () => {
-    toast.info("Logged out successfully");
-    navigate("/");
-  };
+// ── Public pages ────────────────────────────────────────────────
+export { default as HomePage }          from "./PublicPages/HomePage";
+export { default as ProductsPage }      from "./PublicPages/ProductsPage";
+export { default as ProductDetailsPage } from "./PublicPages/ProductDetailsPage";
+export { default as NotFoundPage }      from "./PublicPages/NotFoundPage";
 
-  const toggleLanguage = () => {
-    const nextLang = i18n.language === "en" ? "es" : "en";
-    i18n.changeLanguage(nextLang);
-  };
+// ── Admin pages ─────────────────────────────────────────────────
+export { default as AdminDashboardPage }    from "./AdminPages/dashboardPages/AdminDashboardPage";
+export { default as AdminProductsPage }     from "./AdminPages/productsPages/AdminProductsPage";
+export { default as AdminAddProductPage }   from "./AdminPages/productsPages/AdminAddProductPage";
+export { default as AdminEditProductPage }  from "./AdminPages/productsPages/AdminEditProductPage";
+export { default as AdminOrdersPage }       from "./AdminPages/ordersPage/AdminOrdersPage";
+export { default as AdminUsersPage }        from "./AdminPages/usersPage/AdminUsersPage";
+export { default as AdminCategoryPage }     from "./AdminPages/categoriesPages/AdminCategoryPage";
+export { default as AdminAddCategoryPage }  from "./AdminPages/categoriesPages/AdminAddCategoryPage";
+export { default as AdminEditCategoryPage } from "./AdminPages/categoriesPages/AdminEditCategoryPage";
+export { default as AdminReviewsPage }      from "./AdminPages/reviewsPage/AdminReviewsPage";
+export { default as AdminSettingsPage }     from "./AdminPages/settingsPage/AdminSettingsPage";`
+  );
 
+  // ─────────────────────────────────────────────────────────────
+  // 📁 ROUTES
+  // ─────────────────────────────────────────────────────────────
+  createFile(
+    "src/routes/AdminProtectedRoute.jsx",
+    `import React from "react";
+import { Navigate, Outlet } from "react-router-dom";
+import { routes } from "../constraints/routes";
+import { useAuth } from "../features/auth";
+
+const AdminProtectedRoute = () => {
+  const { token, isAdmin, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <span className="loading-spinner" />
+      </div>
+    );
+  }
+
+  if (!token)   return <Navigate to={routes.LOGIN} replace />;
+  if (!isAdmin) return <Navigate to={routes.HOME}  replace />;
+
+  return <Outlet />;
+};
+
+export default AdminProtectedRoute;`
+  );
+
+  createFile(
+    "src/routes/AppRoutes.jsx",
+    `import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { routes } from "../constraints/routes";
+
+// ── Layouts ────────────────────────────────────────────────────
+import MainLayout from "../layouts/MainLayout";
+import AdminLayout from "../layouts/AdminLayout";
+
+// ── All pages from the central barrel ─────────────────────────
+import {
+  // Public
+  HomePage,
+  ProductsPage,
+  ProductDetailsPage,
+  NotFoundPage,
+  // Auth
+  LoginPage,
+  RegisterPage,
+  ForgotPasswordPage,
+  VerifyOTPPage,
+  SetNewPasswordPage,
+  // Admin
+  AdminDashboardPage,
+  AdminProductsPage,
+  AdminAddProductPage,
+  AdminEditProductPage,
+  AdminOrdersPage,
+  AdminUsersPage,
+  AdminCategoryPage,
+  AdminAddCategoryPage,
+  AdminEditCategoryPage,
+  AdminReviewsPage,
+  AdminSettingsPage,
+} from "../pages";
+
+// ── Route guard ────────────────────────────────────────────────
+import AdminProtectedRoute from "./AdminProtectedRoute";
+
+const AppRoutes = () => {
   return (
-    <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-logo">
-          <LayoutDashboard size={24} />
-          <span>Architex Panel</span>
-        </div>
-        <div className="nav-actions">
-          <button onClick={toggleLanguage} className="lang-btn">
-            <Globe size={16} />
-            <span>{i18n.language.toUpperCase()}</span>
-          </button>
-          <button onClick={handleLogout} className="logout-btn">
-            <LogOut size={16} />
-            <span>{t("logout")}</span>
-          </button>
-        </div>
-      </nav>
+    <Router>
+      <Routes>
 
-      <main className="dashboard-content">
-        <div className="welcome-card">
-          <h1>{t("dashboard")}</h1>
-          <p>Welcome to your enterprise administration panel.</p>
-        </div>
+        {/* ════════════════ PUBLIC WEBSITE ════════════════ */}
+        <Route element={<MainLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path={routes.PRODUCTS} element={<ProductsPage />} />
+          <Route path={routes.PRODUCT_DETAILS} element={<ProductDetailsPage />} />
+        </Route>
+
+        {/* ════════════════ AUTH ══════════════════════════ */}
+        <Route path={routes.LOGIN}            element={<LoginPage />} />
+        <Route path={routes.REGISTER}         element={<RegisterPage />} />
+        <Route path={routes.FORGOT_PASSWORD}  element={<ForgotPasswordPage />} />
+        <Route path={routes.VERIFY_OTP}       element={<VerifyOTPPage />} />
+        <Route path={routes.SET_NEW_PASSWORD} element={<SetNewPasswordPage />} />
+
+        {/* ════════════════ ADMIN (PROTECTED) ═════════════ */}
+        <Route element={<AdminProtectedRoute />}>
+          <Route element={<AdminLayout />}>
+            <Route path={routes.ADMIN_DASHBOARD}    element={<AdminDashboardPage />} />
+            <Route path={routes.ADMIN_PRODUCTS}     element={<AdminProductsPage />} />
+            <Route path={routes.ADMIN_ADD_PRODUCT}  element={<AdminAddProductPage />} />
+            <Route path={routes.ADMIN_EDIT_PRODUCT} element={<AdminEditProductPage />} />
+            <Route path={routes.ADMIN_ORDERS}       element={<AdminOrdersPage />} />
+            <Route path={routes.ADMIN_USERS}        element={<AdminUsersPage />} />
+            <Route path={routes.ADMIN_CATEGORIES}   element={<AdminCategoryPage />} />
+            <Route path={routes.ADMIN_ADD_CATEGORY}  element={<AdminAddCategoryPage />} />
+            <Route path={routes.ADMIN_EDIT_CATEGORY} element={<AdminEditCategoryPage />} />
+            <Route path={routes.ADMIN_REVIEWS}      element={<AdminReviewsPage />} />
+            <Route path={routes.ADMIN_SETTINGS}     element={<AdminSettingsPage />} />
+          </Route>
+        </Route>
+
+        {/* ════════════════ FALLBACK ═══════════════════════ */}
+        <Route path="*" element={<NotFoundPage />} />
+
+      </Routes>
+    </Router>
+  );
+};
+
+export default AppRoutes;`
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // 📁 LAYOUTS
+  // ─────────────────────────────────────────────────────────────
+
+  // ── Main (public) layout ─────────────────────────────────────
+  createFile(
+    "src/layouts/MainLayout.jsx",
+    `import { Outlet } from "react-router-dom";
+import Navbar from "../components/ui/Navbar";
+import Footer from "../components/ui/Footer";
+
+export default function MainLayout() {
+  return (
+    <div className="main-layout">
+      <Navbar />
+      <main className="main-content">
+        <Outlet />
       </main>
+      <Footer />
     </div>
-  );}`
   );
-
-  // 📁 COMPONENTS
-  createFile(
-    "src/components/Button.jsx",
-    `export default function Button({ children, ...props }) {
-  return <button {...props}>{children}</button>;
 }`
   );
 
-  // 📁 HOOKS
+  // ── Admin / Dashboard layout ──────────────────────────────────
   createFile(
-    "src/hooks/useAuth.js",
-    `export default function useAuth() {
-  return { user: null };
+    "src/layouts/AdminLayout.jsx",
+    `import { Outlet } from "react-router-dom";
+import DashboardHeader from "../components/admin/DashboardHeader";
+import Sidebar from "../components/admin/Sidebar";
+
+export default function AdminLayout() {
+  return (
+    <>
+      <DashboardHeader />
+      <div className="admin-body">
+        <Sidebar />
+        <main className="admin-content">
+          <Outlet />
+        </main>
+      </div>
+    </>
+  );
 }`
   );
 
+  // ─────────────────────────────────────────────────────────────
+  // 📁 UI COMPONENTS (used by layouts)
+  // ─────────────────────────────────────────────────────────────
+  createFile(
+    "src/components/ui/Navbar.jsx",
+    `// TODO: Build out the public Navbar.
+export default function Navbar() {
+  return <nav className="navbar">Navbar</nav>;
+}`
+  );
+
+  createFile(
+    "src/components/ui/Footer.jsx",
+    `// TODO: Build out the Footer.
+export default function Footer() {
+  return <footer className="footer">Footer</footer>;
+}`
+  );
+
+  createFile(
+    "src/components/admin/DashboardHeader.jsx",
+    `// TODO: Build out the admin dashboard header / topbar.
+export default function DashboardHeader() {
+  return <header className="dashboard-header">Dashboard Header</header>;
+}`
+  );
+
+  createFile(
+    "src/components/admin/Sidebar.jsx",
+    `// TODO: Build out the admin sidebar navigation.
+export default function Sidebar() {
+  return <aside className="sidebar">Sidebar</aside>;
+}`
+  );
+
+
+  // ─────────────────────────────────────────────────────────────
   // 📁 SERVICES
+  // ─────────────────────────────────────────────────────────────
   createFile(
     "src/services/api.js",
     `import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://api.example.com",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "https://api.example.com",
 });
 
 export default api;`
   );
 
-  // 📁 CONTEXT
   createFile(
-    "src/context/AuthContext.jsx",
-    `import { createContext } from "react";
+    "src/services/interceptors.js",
+    `// Imported in main.jsx — runs before anything else.
+// TODO: Customise request/response interceptors as needed.
+import api from "./api";
 
-export const AuthContext = createContext();`
+// Request — attach Bearer token automatically
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) config.headers.Authorization = \`Bearer \${token}\`;
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response — handle 401 globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);`
   );
 
+  // ─────────────────────────────────────────────────────────────
   // 📁 UTILS
+  // ─────────────────────────────────────────────────────────────
   createFile(
     "src/utils/helpers.js",
     `export const formatDate = (date) => {
@@ -319,32 +617,112 @@ export const AuthContext = createContext();`
 };`
   );
 
-  // 📁 ROUTES
+  // ─────────────────────────────────────────────────────────────
+  // 📁 HOOKS  (src/hooks)  — global / shared hooks
+  // Feature-specific hooks live inside their feature folder.
+  // ─────────────────────────────────────────────────────────────
   createFile(
-    "src/routes/AppRoutes.jsx",
-    `import { Routes, Route } from "react-router-dom";
-import Login from "../features/auth/Login";
-import Dashboard from "../features/dashboard/Dashboard";
+    "src/hooks/useDebounce.js",
+    `import { useState, useEffect } from "react";
 
-export default function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<Login />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-    </Routes>
-  );
+// Generic debounce hook — useful for search inputs, etc.
+export default function useDebounce(value, delay = 400) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debounced;
 }`
   );
 
-  // 📁 LAYOUTS
   createFile(
-    "src/layouts/MainLayout.jsx",
-    `export default function MainLayout({ children }) {
-  return <div className="app-layout">{children}</div>;
+    "src/hooks/useLocalStorage.js",
+    `import { useState } from "react";
+
+// Persist state to localStorage automatically.
+export default function useLocalStorage(key, initialValue) {
+  const [storedValue, setStoredValue] = useState(() => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+
+  const setValue = (value) => {
+    try {
+      setStoredValue(value);
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  return [storedValue, setValue];
 }`
   );
 
+  createFile(
+    "src/hooks/index.js",
+    `// Global shared hooks barrel.
+// Feature-specific hooks are exported from their own feature barrel.
+export { default as useDebounce }     from "./useDebounce";
+export { default as useLocalStorage } from "./useLocalStorage";`
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // 📁 COMPONENTS  (src/components)  — shared / global components
+  // ui/      → public-facing UI atoms (Navbar, Footer, Button…)
+  // admin/   → admin-specific atoms (Sidebar, DashboardHeader…)
+  // ─────────────────────────────────────────────────────────────
+  createFile(
+    "src/components/index.js",
+    `// Global shared components barrel.
+// Import from here instead of deep paths.
+
+// ── UI (public) ─────────────────────────────────────────────────
+export { default as Navbar } from "./ui/Navbar";
+export { default as Footer } from "./ui/Footer";
+
+// ── Admin ────────────────────────────────────────────────────────
+export { default as DashboardHeader } from "./admin/DashboardHeader";
+export { default as Sidebar }         from "./admin/Sidebar";`
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // 📁 ENV FILES
+  // Vite exposes variables prefixed with VITE_ via import.meta.env.
+  // Never commit .env — commit only .env.example.
+  // ─────────────────────────────────────────────────────────────
+  createFile(
+    ".env",
+    `# ── App ────────────────────────────────────────────────────────
+VITE_APP_NAME=MyApp
+
+# ── API ─────────────────────────────────────────────────────────
+VITE_API_BASE_URL=http://localhost:5000/api
+
+# ── Auth (optional) ─────────────────────────────────────────────
+# VITE_GOOGLE_CLIENT_ID=your-google-client-id`
+  );
+
+  createFile(
+    ".env.example",
+    `# Copy this file to .env and fill in your values.
+# Vite only exposes variables prefixed with VITE_ to the browser.
+
+VITE_APP_NAME=
+VITE_API_BASE_URL=
+# VITE_GOOGLE_CLIENT_ID=`
+  );
+
+  // ─────────────────────────────────────────────────────────────
   // 📁 STYLES
+  // ─────────────────────────────────────────────────────────────
   createFile(
     "src/index.css",
     `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
@@ -366,8 +744,6 @@ export default function AppRoutes() {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
   background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.15), transparent 40%),
@@ -377,296 +753,51 @@ body {
 
 #root {
   width: 100%;
-}
-
-/* Auth Container & Layout */
-.auth-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   min-height: 100vh;
-  padding: 2rem;
-  position: relative;
-  box-sizing: border-box;
 }
 
-.language-selector {
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-}
-
-.lang-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.lang-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
-}
-
-.auth-card {
-  background: rgba(30, 41, 59, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 3rem 2.5rem;
-  width: 100%;
-  max-width: 440px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
-  box-sizing: border-box;
-}
-
-.auth-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.auth-icon-wrapper {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: white;
-  border-radius: 16px;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
-}
-
-.auth-header h2 {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: white;
-}
-
-.auth-header p {
-  margin: 0.5rem 0 0 0;
-  color: #94a3b8;
-  font-size: 0.95rem;
-}
-
-.credentials-hint {
-  margin-top: 1rem;
-  font-size: 0.8rem;
-  color: #6366f1;
-  background: rgba(99, 102, 241, 0.1);
-  padding: 0.5rem;
-  border-radius: 8px;
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  display: inline-block;
-}
-
-.auth-form {
+/* ── Layouts ─────────────────────────────────────────────────── */
+.main-layout,
+.admin-layout {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  text-align: left;
-}
-
-.form-group label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #cbd5e1;
-}
-
-.input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.input-icon {
-  position: absolute;
-  left: 1rem;
-  color: #64748b;
-  pointer-events: none;
-}
-
-.input-wrapper input {
   width: 100%;
-  padding: 0.875rem 1rem 0.875rem 2.75rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  color: white;
-  font-family: inherit;
-  font-size: 0.95rem;
-  outline: none;
-  transition: all 0.2s ease;
-  box-sizing: border-box;
-}
-
-.input-wrapper input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-  background: rgba(15, 23, 42, 0.8);
-}
-
-.input-wrapper input.input-error {
-  border-color: #ef4444;
-}
-
-.input-wrapper input.input-error:focus {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
-}
-
-.error-text {
-  font-size: 0.8rem;
-  color: #f87171;
-  font-weight: 500;
-}
-
-.submit-btn {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: white;
-  border: none;
-  padding: 0.875rem;
-  border-radius: 12px;
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-top: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.2);
-}
-
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
-}
-
-.submit-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Dashboard Style */
-.dashboard-container {
   min-height: 100vh;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
-.dashboard-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem 2rem;
-  background: rgba(15, 23, 42, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.nav-logo {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-weight: 700;
-  font-size: 1.25rem;
-  color: white;
-}
-
-.nav-logo svg {
-  color: #6366f1;
-}
-
-.nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.logout-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.logout-btn:hover {
-  background: #ef4444;
-  border-color: #ef4444;
-  color: white;
-}
-
-.dashboard-content {
+.main-content {
   flex: 1;
-  padding: 3rem 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-  box-sizing: border-box;
 }
 
-.welcome-card {
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 20px;
-  padding: 4rem;
-  text-align: center;
-  backdrop-filter: blur(8px);
+.footer {
+  margin-top: auto;
 }
 
-.welcome-card h1 {
-  margin: 0;
-  font-size: 2.5rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #fff, #94a3b8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* ── Loading screen ──────────────────────────────────────────── */
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
 }
 
-.welcome-card p {
-  color: #94a3b8;
-  font-size: 1.1rem;
-  margin-top: 1rem;
-  margin-bottom: 0;
+.loading-spinner {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(99, 102, 241, 0.2);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 `
   );
 
-  console.log("📁 Dummy files created successfully");
+  console.log("✅ Architecture created successfully");
 }
 
 module.exports = { setupStructure };
