@@ -15,8 +15,8 @@ function createProject(projectName) {
   );
 
   // 2. Absolute project path (IMPORTANT FIX)
-  // process.cwd() gives us the current working directory (where we ran the command) example E:\create-architex-app 
-  // path.join() joins the current working directory with the project name to create the absolute path example E:\create-architex-app\my-architex-app
+  // process.cwd() gives us the current working directory (where we ran the command) example E:\create-architex-studio 
+  // path.join() joins the current working directory with the project name to create the absolute path example E:\create-architex-studio\my-architex-app
   const projectPath = path.join(process.cwd(), projectName);
 
   console.log("📁 Project Path:", projectPath);

@@ -1,17 +1,17 @@
-# create-architex-app
+# create-architex-studio
 
 Architex scaffolding CLI for creating a React + Vite project with the folder structure used by this generator.
 
 ## Install
 
 ```bash
-npm install create-architex-app
+npm install create-architex-studio
 ```
 
 ## Use
 
 ```bash
-npx create-architex-app my-app
+npx create-architex-studio my-app
 ```
 
 ## What gets installed

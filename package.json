@@ -1,9 +1,9 @@
   {
-    "name": "create-architex-app",
+    "name": "create-architex-studio",
     "version": "1.0.0",
     "description": "Architex Scaffolding CLI - Enterprise level React Feature Base Folder Architecture Generator",
     "bin": {
-      "create-architex-app": "./bin/cli.js"
+      "create-architex-studio": "./bin/cli.js"
     },
     "files": [
       "bin",

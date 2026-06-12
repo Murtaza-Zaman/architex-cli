@@ -4,7 +4,7 @@ const { program } = require("commander"); // for command line interface
 const { createProject } = require("../generators/createProject"); // for creating the project
 
 program
-  .name("create-architex-app")
+  .name("create-architex-studio")
   .description("Architex Scaffolding CLI")
   .argument("<project-name>")
   .action((name) => {
