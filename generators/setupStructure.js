@@ -56,7 +56,7 @@ createRoot(document.getElementById("root")).render(
   // 📁 ROUTE CONSTANTS
   // ─────────────────────────────────────────────────────────────
   createFile(
-    "src/constraints/routes.js",
+    "src/constants/routes.js",
     `// Central route path constants — import this everywhere, never use raw strings.
 export const routes = {
   // ── Public Pages ────────────────────────────────────────────
@@ -371,7 +371,7 @@ export { default as AdminSettingsPage }     from "./AdminPages/settingsPage/Admi
     "src/routes/AdminProtectedRoute.jsx",
     `import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { routes } from "../constraints/routes";
+import { routes } from "../constants/routes";
 import { useAuth } from "../features/auth";
 
 const AdminProtectedRoute = () => {
@@ -398,7 +398,7 @@ export default AdminProtectedRoute;`
     "src/routes/AppRoutes.jsx",
     `import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { routes } from "../constraints/routes";
+import { routes } from "../constants/routes";
 
 // ── Layouts ────────────────────────────────────────────────────
 import MainLayout from "../layouts/MainLayout";
